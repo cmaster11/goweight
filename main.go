@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/jondot/goweight/pkg"
-
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -23,6 +23,11 @@ var (
 	packages   = kingpin.Arg("packages", "Packages to build").String()
 )
 
+type Result struct {
+	Summary       []*pkg.ModuleEntry
+	DependencyMap map[string][]*pkg.ModuleEntry
+}
+
 func main() {
 	kingpin.Version(fmt.Sprintf("%s (%s)", version, commit))
 	kingpin.Parse()
@@ -39,11 +44,36 @@ func main() {
 	work := weight.BuildCurrent()
 	modules := weight.Process(work)
 
+	result := &Result{
+		DependencyMap: modules,
+	}
+
+	// Compute summary
+	{
+		allModulesMap := make(map[string]*pkg.ModuleEntry)
+
+		for _, moduleEntries := range modules {
+			for _, moduleEntry := range moduleEntries {
+				allModulesMap[moduleEntry.Name] = moduleEntry
+			}
+		}
+
+		var allModules []*pkg.ModuleEntry
+
+		for _, entry := range allModulesMap {
+			allModules = append(allModules, entry)
+		}
+
+		sort.Slice(allModules, func(i, j int) bool { return allModules[i].Size > allModules[j].Size })
+
+		result.Summary = allModules
+	}
+
 	if *jsonOutput {
-		m, _ := json.Marshal(modules)
+		m, _ := json.Marshal(result)
 		fmt.Print(string(m))
 	} else {
-		for module, deps := range modules {
+		for module, deps := range result.DependencyMap {
 			fmt.Printf("%s\n", module)
 			for _, dep := range deps {
 				if dep == nil {
@@ -51,6 +81,12 @@ func main() {
 				}
 				fmt.Printf("\t%8s %s\n", dep.SizeHuman, dep.Name)
 			}
+		}
+
+		fmt.Printf("\n")
+
+		for _, module := range result.Summary {
+			fmt.Printf("%8s %s\n", module.SizeHuman, module.Name)
 		}
 	}
 }

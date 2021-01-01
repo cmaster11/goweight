@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/dustin/go-humanize"
@@ -136,6 +137,11 @@ func (g *GoWeight) Process(work string) map[string][]*ModuleEntry {
 		}
 
 		remappedModuleNamesMap[dirName] = entry
+	}
+
+	// Sort
+	for _, value := range remappedModuleNamesMap {
+		sort.Slice(value, func(i, j int) bool { return value[i].Size > value[j].Size })
 	}
 
 	return remappedModuleNamesMap
