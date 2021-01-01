@@ -6,7 +6,7 @@ import (
 
 	"github.com/jondot/goweight/pkg"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -18,6 +18,8 @@ var (
 var (
 	jsonOutput = kingpin.Flag("json", "Output json").Short('j').Bool()
 	buildTags  = kingpin.Flag("tags", "Build tags").String()
+	envVars    = kingpin.Flag("env", "Environment variables to pass").StringMap()
+	debug      = kingpin.Flag("debug", "Turns on more debugging output").Bool()
 	packages   = kingpin.Arg("packages", "Packages to build").String()
 )
 
@@ -31,6 +33,8 @@ func main() {
 	if *packages != "" {
 		weight.BuildCmd = append(weight.BuildCmd, *packages)
 	}
+	weight.EnvVars = *envVars
+	weight.Debug = *debug
 
 	work := weight.BuildCurrent()
 	modules := weight.Process(work)
@@ -39,8 +43,14 @@ func main() {
 		m, _ := json.Marshal(modules)
 		fmt.Print(string(m))
 	} else {
-		for _, module := range modules {
-			fmt.Printf("%8s %s\n", module.SizeHuman, module.Name)
+		for module, deps := range modules {
+			fmt.Printf("%s\n", module)
+			for _, dep := range deps {
+				if dep == nil {
+					continue
+				}
+				fmt.Printf("\t%8s %s\n", dep.SizeHuman, dep.Name)
+			}
 		}
 	}
 }
